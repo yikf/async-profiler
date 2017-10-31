@@ -28,7 +28,7 @@
 
 class MachOParser {
   private:
-    NativeCodeCache* _cc;
+    NativeLibrary* _lib;
     const char* _base;
     const char* _header;
 
@@ -58,16 +58,16 @@ class MachOParser {
         for (uint32_t i = 0; i < symtab->nsyms; i++) {
             nlist_64 sym = symbol_table[i];
             if ((sym.n_type & 0xee) == 0x0e && sym.n_value != 0) {
-                _cc->add(_base + sym.n_value, 0, str_table + sym.n_un.n_strx + 1);
+                _lib->add(_base + sym.n_value, 0, str_table + sym.n_un.n_strx + 1);
             }
         }
     }
 
   public:
-    MachOParser(NativeCodeCache* cc, const char* base, const char* header) : _cc(cc), _base(base), _header(header) {
+    MachOParser(NativeLibrary* lib, const char* base, const char* header) : _lib(lib), _base(base), _header(header) {
     }
 
-    static void parseFile(NativeCodeCache* cc, const char* base, const char* file_name) {
+    static void parseFile(NativeLibrary* lib, const char* base, const char* file_name) {
         int fd = open(file_name, O_RDONLY);
         if (fd == -1) {
             return;
@@ -78,7 +78,7 @@ class MachOParser {
         close(fd);
 
         if (addr != NULL) {
-            MachOParser parser(cc, base, (const char*)addr);
+            MachOParser parser(lib, base, (const char*)addr);
             parser.loadSymbols();
             munmap(addr, length);
         }
@@ -86,10 +86,10 @@ class MachOParser {
 };
 
 
-void Symbols::parseKernelSymbols(NativeCodeCache* cc) {
+void Symbols::parseKernelSymbols(NativeLibrary* lib) {
 }
 
-int Symbols::parseMaps(NativeCodeCache** array, int size) {
+int Symbols::parseMaps(NativeLibrary** array, int size) {
     int count = 0;
     uint32_t images = _dyld_image_count();
 
@@ -101,10 +101,10 @@ int Symbols::parseMaps(NativeCodeCache** array, int size) {
         // are supported on macOS, we'll take care about other native libraries
         size_t length = strlen(path);
         if (length >= 12 && strcmp(path + length - 12, "libjvm.dylib") == 0) {
-            NativeCodeCache* cc = new NativeCodeCache(path);
-            MachOParser::parseFile(cc, base, path);
-            cc->sort();
-            array[count++] = cc;
+            NativeLibrary* lib = new NativeLibrary(path);
+            MachOParser::parseFile(lib, base, path);
+            lib->sort();
+            array[count++] = lib;
         }
     }
 

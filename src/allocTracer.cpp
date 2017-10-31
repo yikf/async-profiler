@@ -17,7 +17,7 @@
 #include <stdint.h>
 #include <sys/mman.h>
 #include "allocTracer.h"
-#include "codeCache.h"
+#include "library.h"
 #include "profiler.h"
 #include "stackFrame.h"
 #include "vmStructs.h"
@@ -80,7 +80,7 @@ void AllocTracer::signalHandler(int signo, siginfo_t* siginfo, void* ucontext) {
 }
 
 Error AllocTracer::start(const char* event, long interval) {
-    NativeCodeCache* libjvm = Profiler::_instance.jvmLibrary();
+    NativeLibrary* libjvm = Profiler::_instance.jvmLibrary();
     if (libjvm == NULL) {
         return Error("libjvm not found among loaded libraries");
     }

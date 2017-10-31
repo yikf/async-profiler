@@ -24,7 +24,7 @@
 #include "arguments.h"
 #include "engine.h"
 #include "spinLock.h"
-#include "codeCache.h"
+#include "library.h"
 #include "vmEntry.h"
 
 
@@ -139,9 +139,9 @@ class Profiler {
     SpinLock _jit_lock;
     const void* _jit_min_address;
     const void* _jit_max_address;
-    CodeCache _java_methods;
-    NativeCodeCache _runtime_stubs;
-    NativeCodeCache* _native_libs[MAX_NATIVE_LIBS];
+    Library _java_methods;
+    NativeLibrary _runtime_stubs;
+    NativeLibrary* _native_libs[MAX_NATIVE_LIBS];
     int _native_lib_count;
 
     void addJavaMethod(const void* address, int length, jmethodID method);
@@ -191,7 +191,7 @@ class Profiler {
     void dumpTraces(std::ostream& out, int max_traces);
     void dumpFlat(std::ostream& out, int max_methods);
     void recordSample(void* ucontext, u64 counter, jint event_type, jmethodID event);
-    NativeCodeCache* jvmLibrary();
+    NativeLibrary* jvmLibrary();
 
     static void JNICALL VMDeath(jvmtiEnv* jvmti, JNIEnv* jni) {
         MutexLocker ml(_instance._state_lock);

@@ -98,14 +98,14 @@ typedef Elf32_Sym  ElfSymbol;
 
 class ElfParser {
   private:
-    NativeCodeCache* _cc;
+    NativeLibrary* _lib;
     const char* _base;
     const char* _file_name;
     ElfHeader* _header;
     const char* _sections;
 
-    ElfParser(NativeCodeCache* cc, const char* base, const void* addr, const char* file_name = NULL) {
-        _cc = cc;
+    ElfParser(NativeLibrary* lib, const char* base, const void* addr, const char* file_name = NULL) {
+        _lib = lib;
         _base = base;
         _file_name = file_name;
         _header = (ElfHeader*)addr;
@@ -135,8 +135,8 @@ class ElfParser {
     void loadSymbolTable(ElfSection* symtab);
 
   public:
-    static bool parseFile(NativeCodeCache* cc, const char* base, const char* file_name, bool use_debug);
-    static void parseMem(NativeCodeCache* cc, const char* base, const void* addr);
+    static bool parseFile(NativeLibrary* lib, const char* base, const char* file_name, bool use_debug);
+    static void parseMem(NativeLibrary* lib, const char* base, const void* addr);
 };
 
 
@@ -155,7 +155,7 @@ ElfSection* ElfParser::findSection(uint32_t type, const char* name) {
     return NULL;
 }
 
-bool ElfParser::parseFile(NativeCodeCache* cc, const char* base, const char* file_name, bool use_debug) {
+bool ElfParser::parseFile(NativeLibrary* lib, const char* base, const char* file_name, bool use_debug) {
     int fd = open(file_name, O_RDONLY);
     if (fd == -1) {
         return false;
@@ -166,15 +166,15 @@ bool ElfParser::parseFile(NativeCodeCache* cc, const char* base, const char* fil
     close(fd);
 
     if (addr != NULL) {
-        ElfParser elf(cc, base, addr, file_name);
+        ElfParser elf(lib, base, addr, file_name);
         elf.loadSymbols(use_debug);
         munmap(addr, length);
     }
     return true;
 }
 
-void ElfParser::parseMem(NativeCodeCache* cc, const char* base, const void* addr) {
-    ElfParser elf(cc, base, addr);
+void ElfParser::parseMem(NativeLibrary* lib, const char* base, const void* addr) {
+    ElfParser elf(lib, base, addr);
     elf.loadSymbols(false);
 }
 
@@ -226,7 +226,7 @@ bool ElfParser::loadSymbolsUsingBuildId() {
     }
     strcpy(p, ".debug");
 
-    return parseFile(_cc, _base, path, false);
+    return parseFile(_lib, _base, path, false);
 }
 
 // Look for debuginfo file specified in .gnu_debuglink section
@@ -253,17 +253,17 @@ bool ElfParser::loadSymbolsUsingDebugLink() {
     // 1. /path/to/libjvm.so.debug
     if (strcmp(debuglink, basename + 1) != 0 &&
         snprintf(path, sizeof(path), "%s/%s", dirname, debuglink) < sizeof(path)) {
-        result = parseFile(_cc, _base, path, false);
+        result = parseFile(_lib, _base, path, false);
     }
 
     // 2. /path/to/.debug/libjvm.so.debug
     if (!result && snprintf(path, sizeof(path), "%s/.debug/%s", dirname, debuglink) < sizeof(path)) {
-        result = parseFile(_cc, _base, path, false);
+        result = parseFile(_lib, _base, path, false);
     }
 
     // 3. /usr/lib/debug/path/to/libjvm.so.debug
     if (!result && snprintf(path, sizeof(path), "/usr/lib/debug%s/%s", dirname, debuglink) < sizeof(path)) {
-        result = parseFile(_cc, _base, path, false);
+        result = parseFile(_lib, _base, path, false);
     }
 
     free(dirname);
@@ -279,13 +279,13 @@ void ElfParser::loadSymbolTable(ElfSection* symtab) {
     for (; symbols < symbols_end; symbols += symtab->sh_entsize) {
         ElfSymbol* sym = (ElfSymbol*)symbols;
         if (sym->st_name != 0 && sym->st_value != 0) {
-            _cc->add(_base + sym->st_value, (int)sym->st_size, strings + sym->st_name);
+            _lib->add(_base + sym->st_value, (int)sym->st_size, strings + sym->st_name);
         }
     }
 }
 
 
-void Symbols::parseKernelSymbols(NativeCodeCache* cc) {
+void Symbols::parseKernelSymbols(NativeLibrary* lib) {
     std::ifstream maps("/proc/kallsyms");
     std::string str;
 
@@ -296,19 +296,19 @@ void Symbols::parseKernelSymbols(NativeCodeCache* cc) {
         if (type == 'T' || type == 't' || type == 'W' || type == 'w') {
             const char* addr = symbol.addr();
             if (addr != NULL) {
-                cc->add(addr, 0, symbol.name());
+                lib->add(addr, 0, symbol.name());
             }
         }
     }
 }
 
-int Symbols::parseMaps(NativeCodeCache** array, int size) {
+int Symbols::parseMaps(NativeLibrary** array, int size) {
     int count = 0;
     if (count < size) {
-        NativeCodeCache* cc = new NativeCodeCache("[kernel]");
-        parseKernelSymbols(cc);
-        cc->sort();
-        array[count++] = cc;
+        NativeLibrary* lib = new NativeLibrary("[kernel]");
+        parseKernelSymbols(lib);
+        lib->sort();
+        array[count++] = lib;
     }
 
     std::ifstream maps("/proc/self/maps");
@@ -317,17 +317,17 @@ int Symbols::parseMaps(NativeCodeCache** array, int size) {
     while (count < size && std::getline(maps, str)) {
         MemoryMapDesc map(str.c_str());
         if (map.isExecutable() && map.file() != NULL && map.file()[0] != 0) {
-            NativeCodeCache* cc = new NativeCodeCache(map.file(), map.addr(), map.end());
+            NativeLibrary* lib = new NativeLibrary(map.file(), map.addr(), map.end());
             const char* base = map.addr() - map.offs();
 
             if (map.inode() != 0) {
-                ElfParser::parseFile(cc, base, map.file(), true);
+                ElfParser::parseFile(lib, base, map.file(), true);
             } else if (strcmp(map.file(), "[vdso]") == 0) {
-                ElfParser::parseMem(cc, base, base);
+                ElfParser::parseMem(lib, base, base);
             }
 
-            cc->sort();
-            array[count++] = cc;
+            lib->sort();
+            array[count++] = lib;
         }
     }
 

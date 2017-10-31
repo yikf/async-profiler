@@ -17,15 +17,15 @@
 #ifndef _SYMBOLS_H
 #define _SYMBOLS_H
 
-#include "codeCache.h"
+#include "library.h"
 
 
 class Symbols {
   private:
-    static void parseKernelSymbols(NativeCodeCache* cc);
+    static void parseKernelSymbols(NativeLibrary* lib);
 
   public:
-    static int parseMaps(NativeCodeCache** array, int size);
+    static int parseMaps(NativeLibrary** array, int size);
 };
 
 #endif // _SYMBOLS_H

@@ -14,24 +14,24 @@
  * limitations under the License.
  */
 
-#ifndef _CODECACHE_H
-#define _CODECACHE_H
+#ifndef _LIBRARY_H
+#define _LIBRARY_H
 
 #include <jvmti.h>
 
 
-const int INITIAL_CODE_CACHE_CAPACITY = 1000;
+const int INITIAL_LIBRARY_CAPACITY = 1000;
 
 
-class CodeBlob {
+class Symbol {
   public:
     const void* _start;
     const void* _end;
     jmethodID _method;
 
     static int comparator(const void* c1, const void* c2) {
-        CodeBlob* cb1 = (CodeBlob*)c1;
-        CodeBlob* cb2 = (CodeBlob*)c2;
+        Symbol* cb1 = (Symbol*)c1;
+        Symbol* cb2 = (Symbol*)c2;
         if (cb1->_start < cb2->_start) {
             return -1;
         } else if (cb1->_start > cb2->_start) {
@@ -45,23 +45,23 @@ class CodeBlob {
 };
 
 
-class CodeCache {
+class Library {
   protected:
     int _capacity;
     int _count;
-    CodeBlob* _blobs;
+    Symbol* _symbols;
 
     void expand();
 
   public:
-    CodeCache() {
-        _capacity = INITIAL_CODE_CACHE_CAPACITY;
+    Library() {
+        _capacity = INITIAL_LIBRARY_CAPACITY;
         _count = 0;
-        _blobs = new CodeBlob[_capacity];
+        _symbols = new Symbol[_capacity];
     }
 
-    ~CodeCache() {
-        delete[] _blobs;
+    ~Library() {
+        delete[] _symbols;
     }
 
     void add(const void* start, int length, jmethodID method);
@@ -70,16 +70,16 @@ class CodeCache {
 };
 
 
-class NativeCodeCache : public CodeCache {
+class NativeLibrary : public Library {
   private:
     char* _name;
     const void* _min_address;
     const void* _max_address;
   
   public:
-    NativeCodeCache(const char* name, const void* min_address = NULL, const void* max_address = NULL);
+    NativeLibrary(const char* name, const void* min_address = NULL, const void* max_address = NULL);
 
-    ~NativeCodeCache();
+    ~NativeLibrary();
 
     const char* name() {
         return _name;
@@ -95,4 +95,4 @@ class NativeCodeCache : public CodeCache {
     const void* findSymbol(const char* prefix);
 };
 
-#endif // _CODECACHE_H
+#endif // _LIBRARY_H

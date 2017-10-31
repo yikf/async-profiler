@@ -14,18 +14,21 @@
  * limitations under the License.
  */
 
-#include <stdint.h>
 #include <string.h>
 #include "vmStructs.h"
-#include "codeCache.h"
+#include "library.h"
 
 
-int VMStructs::_klass_name_offset = -1;
-int VMStructs::_symbol_length_offset = -1;
-int VMStructs::_symbol_body_offset = -1;
-int VMStructs::_class_klass_offset = -1;
+#define DEFINE_VM_OFFSET(TYPE, NAME, STRUCT, FIELD) \
+    int VMStructs::NAME = -1;
 
-static uintptr_t readSymbol(NativeCodeCache* lib, const char* symbol_name) {
+#define DEFINE_VM_STATIC(TYPE, NAME, STRUCT, FIELD) \
+    TYPE VMStructs::NAME;
+
+FOR_ALL_VM_STRUCTS(DEFINE_VM_OFFSET, DEFINE_VM_STATIC)
+
+
+static uintptr_t readSymbol(NativeLibrary* lib, const char* symbol_name) {
     const void* symbol = lib->findSymbol(symbol_name);
     if (symbol == NULL) {
         // Avoid JVM crash in case of missing symbols
@@ -34,7 +37,7 @@ static uintptr_t readSymbol(NativeCodeCache* lib, const char* symbol_name) {
     return *(uintptr_t*)symbol;
 }
 
-bool VMStructs::init(NativeCodeCache* libjvm) {
+bool VMStructs::init(NativeLibrary* libjvm) {
     if (available()) {
         return true;
     }
@@ -57,21 +60,17 @@ bool VMStructs::init(NativeCodeCache* libjvm) {
             return available();
         }
 
-        if (strcmp(type, "Klass") == 0) {
-            if (strcmp(field, "_name") == 0) {
-                _klass_name_offset = *(int*)(entry + offset_offset);
-            }
-        } else if (strcmp(type, "Symbol") == 0) {
-            if (strcmp(field, "_length") == 0) {
-                _symbol_length_offset = *(int*)(entry + offset_offset);
-            } else if (strcmp(field, "_body") == 0) {
-                _symbol_body_offset = *(int*)(entry + offset_offset);
-            }
-        } else if (strcmp(type, "java_lang_Class") == 0) {
-            if (strcmp(field, "_klass_offset") == 0) {
-                _class_klass_offset = **(int**)(entry + address_offset);
-            }
+#define PARSE_VM_OFFSET(TYPE, NAME, STRUCT, FIELD) \
+        else if (strcmp(type, STRUCT) == 0 && strcmp(field, FIELD) == 0) { \
+            NAME = *(int*)(entry + offset_offset); \
         }
+
+#define PARSE_VM_VAR(TYPE, NAME, STRUCT, FIELD) \
+        else if (strcmp(type, STRUCT) == 0 && strcmp(field, FIELD) == 0) { \
+            NAME = **(TYPE**)(entry + address_offset); \
+        }
+
+        FOR_ALL_VM_STRUCTS(PARSE_VM_OFFSET, PARSE_VM_VAR)
 
         entry += stride;
     }

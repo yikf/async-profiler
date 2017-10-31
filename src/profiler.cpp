@@ -162,7 +162,7 @@ void Profiler::updateJitRange(const void* min_address, const void* max_address) 
     if (max_address > _jit_max_address) _jit_max_address = max_address;
 }
 
-NativeCodeCache* Profiler::jvmLibrary() {
+NativeLibrary* Profiler::jvmLibrary() {
     const void* asyncGetCallTraceAddr = (const void*)VM::_asyncGetCallTrace;
     for (int i = 0; i < _native_lib_count; i++) {
         if (_native_libs[i]->contains(asyncGetCallTraceAddr)) {
