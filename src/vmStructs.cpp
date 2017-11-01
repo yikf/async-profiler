@@ -19,13 +19,14 @@
 #include "library.h"
 
 
-#define DEFINE_VM_OFFSET(TYPE, NAME, STRUCT, FIELD) \
+#define DEFINE_VM_OFFSET(NAME, STRUCT, FIELD) \
     int VMStructs::NAME = -1;
 
 #define DEFINE_VM_STATIC(TYPE, NAME, STRUCT, FIELD) \
     TYPE VMStructs::NAME;
 
-FOR_ALL_VM_STRUCTS(DEFINE_VM_OFFSET, DEFINE_VM_STATIC)
+FOR_ALL_VM_OFFSETS(DEFINE_VM_OFFSET)
+FOR_ALL_VM_STATICS(DEFINE_VM_STATIC)
 
 
 static uintptr_t readSymbol(NativeLibrary* lib, const char* symbol_name) {
@@ -60,18 +61,38 @@ bool VMStructs::init(NativeLibrary* libjvm) {
             return available();
         }
 
-#define PARSE_VM_OFFSET(TYPE, NAME, STRUCT, FIELD) \
-        else if (strcmp(type, STRUCT) == 0 && strcmp(field, FIELD) == 0) { \
+#define PARSE_VM_OFFSET(NAME, STRUCT, FIELD) \
+        else if (strcmp(type, #STRUCT) == 0 && strcmp(field, #FIELD) == 0) { \
             NAME = *(int*)(entry + offset_offset); \
         }
 
-#define PARSE_VM_VAR(TYPE, NAME, STRUCT, FIELD) \
-        else if (strcmp(type, STRUCT) == 0 && strcmp(field, FIELD) == 0) { \
+#define PARSE_VM_STATIC(TYPE, NAME, STRUCT, FIELD) \
+        else if (strcmp(type, #STRUCT) == 0 && strcmp(field, #FIELD) == 0) { \
             NAME = **(TYPE**)(entry + address_offset); \
         }
 
-        FOR_ALL_VM_STRUCTS(PARSE_VM_OFFSET, PARSE_VM_VAR)
+        FOR_ALL_VM_OFFSETS(PARSE_VM_OFFSET)
+        FOR_ALL_VM_STATICS(PARSE_VM_STATIC)
 
         entry += stride;
     }
+}
+
+#define TEST_VM_OFFSET(NAME, STRUCT, FIELD) \
+    if (NAME < 0) return false;
+
+bool VMStructs::available() {
+    FOR_ALL_VM_OFFSETS(TEST_VM_OFFSET)
+    return true;
+}
+
+#define PRINT_VM_OFFSET(NAME, STRUCT, FIELD) \
+    printf(#STRUCT "::" #FIELD " = %d\n", NAME);
+
+#define PRINT_VM_STATIC(TYPE, NAME, STRUCT, FIELD) \
+    printf(#STRUCT "::" #FIELD " = 0x%lx\n", (intptr_t)NAME);
+
+void VMStructs::print() {
+    FOR_ALL_VM_OFFSETS(PRINT_VM_OFFSET)
+    FOR_ALL_VM_STATICS(PRINT_VM_STATIC)
 }

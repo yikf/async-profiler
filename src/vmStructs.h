@@ -21,33 +21,38 @@
 #include "library.h"
 
 
-#define FOR_ALL_VM_STRUCTS(off, var) \
-    off(int,        _klass_name_offset,        "Klass", "_name") \
-    off(int,        _symbol_length_offset,     "Symbol", "_length") \
-    off(int,        _symbol_body_offset,       "Symbol", "_body") \
-    off(int,        _anchor_sp_offset,         "JavaFrameAnchor", "_last_Java_sp") \
-    off(int,        _anchor_pc_offset,         "JavaFrameAnchor", "_last_Java_pc") \
-    off(int,        _anchor_fp_offset,         "JavaFrameAnchor", "_last_Java_fp") \
-    off(int,        _wrapper_anchor_offset,    "JavaCallWrapper", "_anchor") \
-    off(int,        _stub_buffer_offset,       "StubQueue", "_stub_buffer") \
-    off(int,        _stub_buffer_limit_offset, "StubQueue", "_buffer_limit") \
-    off(int,        _heap_memory_offset,       "CodeHeap", "_memory") \
-    off(int,        _heap_segmap_offset,       "CodeHeap", "_segmap") \
-    off(int,        _heap_segment_size_offset, "CodeHeap", "_log2_segment_size") \
-    off(int,        _vs_low_boundary_offset,   "VirtualSpace", "_low_boundary") \
-    off(int,        _vs_high_boundary_offset,  "VirtualSpace", "_high_boundary") \
-    off(int,        _vs_low_offset,            "VirtualSpace", "_low") \
-    off(int,        _vs_high_offset,           "VirtualSpace", "_high") \
-    off(int,        _heap_block_used_offset,   "HeapBlock::Header", "_used") \
-    off(int,        _cb_name_offset,           "CodeBlob", "_name") \
-    off(int,        _cb_size_offset,           "CodeBlob", "_size") \
-    off(int,        _cb_frame_size_offset,     "CodeBlob", "_frame_size") \
-    var(int,        _class_klass_offset,       "java_lang_Class", "_klass_offset") \
-    var(uintptr_t,  _call_stub_return_address, "StubRoutines", "_call_stub_return_address") \
-    var(StubQueue*, _interpreter_code,         "AbstractInterpreter", "_code") \
-    var(CodeHeap*,  _code_cache_heap,          "CodeCache", "_heap") \
+#define FOR_ALL_VM_OFFSETS(F) \
+    F(_klass_name_offset,        Klass, _name) \
+    F(_symbol_length_offset,     Symbol, _length) \
+    F(_symbol_body_offset,       Symbol, _body) \
+    F(_anchor_sp_offset,         JavaFrameAnchor, _last_Java_sp) \
+    F(_anchor_pc_offset,         JavaFrameAnchor, _last_Java_pc) \
+    F(_anchor_fp_offset,         JavaFrameAnchor, _last_Java_fp) \
+    F(_wrapper_anchor_offset,    JavaCallWrapper, _anchor) \
+    F(_stub_buffer_offset,       StubQueue, _stub_buffer) \
+    F(_stub_buffer_limit_offset, StubQueue, _buffer_limit) \
+    F(_heap_memory_offset,       CodeHeap, _memory) \
+    F(_heap_segmap_offset,       CodeHeap, _segmap) \
+    F(_heap_segment_size_offset, CodeHeap, _log2_segment_size) \
+    F(_vs_low_boundary_offset,   VirtualSpace, _low_boundary) \
+    F(_vs_high_boundary_offset,  VirtualSpace, _high_boundary) \
+    F(_vs_low_offset,            VirtualSpace, _low) \
+    F(_vs_high_offset,           VirtualSpace, _high) \
+    F(_heap_block_used_offset,   HeapBlock::Header, _used) \
+    F(_cb_name_offset,           CodeBlob, _name) \
+    F(_cb_size_offset,           CodeBlob, _size) \
+    F(_cb_frame_size_offset,     CodeBlob, _frame_size) \
 
-#define DECLARE_VM_STRUCT(TYPE, NAME, STRUCT, FIELD) \
+#define FOR_ALL_VM_STATICS(F) \
+    F(int,        _class_klass_offset,       java_lang_Class, _klass_offset) \
+    F(uintptr_t,  _call_stub_return_address, StubRoutines, _call_stub_return_address) \
+    F(StubQueue*, _interpreter_code,         AbstractInterpreter, _code) \
+    F(CodeHeap*,  _code_cache_heap,          CodeCache, _heap) \
+
+#define DECLARE_VM_OFFSET(NAME, STRUCT, FIELD) \
+    static int NAME;
+
+#define DECLARE_VM_STATIC(TYPE, NAME, STRUCT, FIELD) \
     static TYPE NAME;
 
 
@@ -56,7 +61,8 @@ class CodeHeap;
 
 class VMStructs {
   protected:
-    FOR_ALL_VM_STRUCTS(DECLARE_VM_STRUCT, DECLARE_VM_STRUCT)
+    FOR_ALL_VM_OFFSETS(DECLARE_VM_OFFSET)
+    FOR_ALL_VM_STATICS(DECLARE_VM_STATIC)
 
     const char* at(int offset) {
         return (const char*)this + offset;
@@ -64,13 +70,8 @@ class VMStructs {
 
   public:
     static bool init(NativeLibrary* libjvm);
-
-    static bool available() {
-        return _klass_name_offset >= 0
-            && _symbol_length_offset >= 0
-            && _symbol_body_offset >= 0
-            && _class_klass_offset >= 0;
-    }
+    static bool available();
+    static void print();
 };
 
 
