@@ -18,6 +18,7 @@
 #define _VMSTRUCTS_H
 
 #include <stdint.h>
+#include <string.h>
 #include "library.h"
 
 
@@ -42,6 +43,11 @@
     F(_cb_name_offset,           CodeBlob, _name) \
     F(_cb_size_offset,           CodeBlob, _size) \
     F(_cb_frame_size_offset,     CodeBlob, _frame_size) \
+    F(_nmethod_method_offset,    nmethod, _method) \
+    F(_constmethod_offset,       Method, _constMethod) \
+    F(_method_constants_offset,  ConstMethod, _constants) \
+    F(_method_name_index_offset, ConstMethod, _name_index) \
+    F(_cp_holder_offset,         ConstantPool, _pool_holder) \
 
 #define FOR_ALL_VM_STATICS(F) \
     F(int,        _class_klass_offset,       java_lang_Class, _klass_offset) \
@@ -90,6 +96,47 @@ class VMKlass : VMStructs {
   public:
     VMSymbol* name() {
         return *(VMSymbol**) at(_klass_name_offset);
+    }
+};
+
+class ConstantPool : VMStructs {
+  public:
+    VMKlass* holder() {
+        return *(VMKlass**) at(_cp_holder_offset);
+    }
+
+    // TODO: ConstantPool size = 80
+    VMSymbol* symbol(int index) {
+        return ((VMSymbol**) at(80))[index];
+    }
+};
+
+class ConstMethod : VMStructs {
+  public:
+    VMKlass* holder() {
+        ConstantPool* constants = *(ConstantPool**) at(_method_constants_offset);
+        return constants->holder();
+    }
+
+    VMSymbol* name() {
+        ConstantPool* constants = *(ConstantPool**) at(_method_constants_offset);
+        unsigned short nameIndex = *(unsigned short*) at(_method_name_index_offset);
+        return constants->symbol(nameIndex);
+    }
+};
+
+class VMMethod : VMStructs {
+  public:
+    ConstMethod* constMethod() {
+        return *(ConstMethod**) at(_constmethod_offset);
+    }
+
+    VMKlass* holder() {
+        return constMethod()->holder();
+    }
+
+    VMSymbol* name() {
+        return constMethod()->name();
     }
 };
 
@@ -189,6 +236,22 @@ class CodeBlob : VMStructs {
     bool contains(const char* pc) {
         return at(0) <= pc && pc < at(size());
     }
+
+    bool isNMethod() {
+        const char* cbName = name();
+        if (cbName == NULL) {
+            return false;
+        }
+
+        // TODO: remove printf
+        printf("cbName = %p\n", cbName);
+        int len = strlen(cbName);
+        return len >= 7 && strcmp(cbName + len - 7, "nmethod") == 0;
+    }
+
+    VMMethod* method() {
+        return *(VMMethod**) at(_nmethod_method_offset);
+    }
 };
 
 class CodeHeap : VMStructs {
@@ -219,9 +282,11 @@ class CodeHeap : VMStructs {
             return NULL;
         }
 
+        printf("CodeCache contains %p\n", pc);
         const char* b = segmap()->low();
         size_t i = addrToIndex(pc);
         if (b[i] == 0xff) {
+            printf("NULL: b[i] == 0xff\n");
             return NULL;
         }
 
@@ -231,9 +296,10 @@ class CodeHeap : VMStructs {
 
         const char* block = indexToAddr(i);
         if (*(bool*)(block + _heap_block_used_offset)) {
-            return NULL;
+            return (CodeBlob*)(block + sizeof(void*) * 2);
         }
-        return (CodeBlob*)block + 2;
+        printf("NULL: unused\n");
+        return NULL;
     }
 };
 
@@ -248,6 +314,7 @@ class CodeCache : VMStructs {
         if (cb != NULL && cb->contains(pc)) {
             return cb;
         }
+        if (cb != NULL) printf("NULL: cb = %p\n", cb);
         return NULL;
     }
 };

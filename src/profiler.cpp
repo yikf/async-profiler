@@ -27,6 +27,7 @@
 #include "lockTracer.h"
 #include "frameName.h"
 #include "stackFrame.h"
+#include "stackWalker.h"
 #include "symbols.h"
 
 
@@ -298,6 +299,18 @@ void Profiler::recordSample(void* ucontext, u64 counter, jint event_type, jmetho
 
     atomicInc(_total_counter, counter);
 
+    StackFrame top_frame(ucontext);
+    uintptr_t pc = top_frame.pc(),
+              sp = top_frame.sp(),
+              fp = top_frame.fp();
+    StackWalker sw(pc, fp, sp);
+    while (true) {
+        uintptr_t new_sp = sw.walk();
+        if (new_sp - sp >= 262144) break;
+        sp = new_sp;
+    }
+    printf("-----\n");
+    
     ASGCT_CallFrame* frames = _calltrace_buffer[lock_index]._asgct_frames;
     int num_frames;
 
