@@ -306,7 +306,7 @@ void Profiler::recordSample(void* ucontext, u64 counter, jint event_type, jmetho
     StackWalker sw(pc, fp, sp);
     while (true) {
         uintptr_t new_sp = sw.walk();
-        if (new_sp - sp >= 262144) break;
+        if (new_sp == sp || new_sp - sp >= 262144) break;
         sp = new_sp;
     }
     printf("-----\n");
@@ -321,7 +321,8 @@ void Profiler::recordSample(void* ucontext, u64 counter, jint event_type, jmetho
         // Events like object allocation happen at known places where it is safe to call JVM TI
         jvmtiFrameInfo* jvmti_frames = _calltrace_buffer[lock_index]._jvmti_frames;
         num_frames = makeEventFrame(frames, event_type, event);
-        num_frames += getJavaTraceJVMTI(jvmti_frames + num_frames, frames + num_frames, MAX_STACK_FRAMES - num_frames);
+        num_frames += getJavaTraceAsync(ucontext, frames + num_frames, MAX_STACK_FRAMES - num_frames);
+        // num_frames += getJavaTraceJVMTI(jvmti_frames + num_frames, frames + num_frames, MAX_STACK_FRAMES - num_frames);
     }
 
     if (num_frames > 0) {

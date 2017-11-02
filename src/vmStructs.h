@@ -243,8 +243,6 @@ class CodeBlob : VMStructs {
             return false;
         }
 
-        // TODO: remove printf
-        printf("cbName = %p\n", cbName);
         int len = strlen(cbName);
         return len >= 7 && strcmp(cbName + len - 7, "nmethod") == 0;
     }
@@ -282,23 +280,20 @@ class CodeHeap : VMStructs {
             return NULL;
         }
 
-        printf("CodeCache contains %p\n", pc);
-        const char* b = segmap()->low();
+        const unsigned char* b = (const unsigned char*)segmap()->low();
         size_t i = addrToIndex(pc);
         if (b[i] == 0xff) {
-            printf("NULL: b[i] == 0xff\n");
             return NULL;
         }
 
-        while (b[i] > 0) {
-            i -= (int)b[i];
+        while (b[i]) {
+            i -= b[i];
         }
 
         const char* block = indexToAddr(i);
         if (*(bool*)(block + _heap_block_used_offset)) {
             return (CodeBlob*)(block + sizeof(void*) * 2);
         }
-        printf("NULL: unused\n");
         return NULL;
     }
 };
@@ -314,7 +309,6 @@ class CodeCache : VMStructs {
         if (cb != NULL && cb->contains(pc)) {
             return cb;
         }
-        if (cb != NULL) printf("NULL: cb = %p\n", cb);
         return NULL;
     }
 };

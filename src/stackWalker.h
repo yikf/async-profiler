@@ -45,10 +45,15 @@ class StackWalker {
     }
 
     void walkEntryFrame() {
-        JavaCallWrapper* wrapper = (JavaCallWrapper*)&at(entry_frame_call_wrapper_offset);
+        JavaCallWrapper* wrapper = (JavaCallWrapper*)at(entry_frame_call_wrapper_offset);
         JavaFrameAnchor* anchor = wrapper->anchor();
-        uintptr_t prev_fp = anchor->lastJavaFP();
+
         uintptr_t prev_sp = anchor->lastJavaSP();
+        if (prev_sp == 0) {
+            return;
+        }
+
+        uintptr_t prev_fp = anchor->lastJavaFP();
         uintptr_t prev_pc = anchor->lastJavaPC();
         if (prev_pc == 0) {
             prev_pc = ((uintptr_t*)prev_sp)[-1];
@@ -85,6 +90,10 @@ class StackWalker {
     }
 
     void walkNativeFrame() {
+        if (_fp == 0) {
+            return;
+        }
+
         uintptr_t prev_fp = at(0);
         uintptr_t prev_pc = at(1);
         uintptr_t prev_sp = (uintptr_t)&at(2);
