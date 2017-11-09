@@ -113,15 +113,17 @@ class ConstantPool : VMStructs {
 
 class ConstMethod : VMStructs {
   public:
+    ConstantPool* constants() {
+        return *(ConstantPool**) at(_method_constants_offset);
+    }
+
     VMKlass* holder() {
-        ConstantPool* constants = *(ConstantPool**) at(_method_constants_offset);
-        return constants->holder();
+        return constants()->holder();
     }
 
     VMSymbol* name() {
-        ConstantPool* constants = *(ConstantPool**) at(_method_constants_offset);
         unsigned short nameIndex = *(unsigned short*) at(_method_name_index_offset);
-        return constants->symbol(nameIndex);
+        return constants()->symbol(nameIndex);
     }
 };
 
